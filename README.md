@@ -2,14 +2,24 @@
 
 Claude Code SessionEnd hook that summarizes the session to an Obsidian vault journal and extracts technical concepts into vault notes.
 
-## Install
+## Quick install
 
 ```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/junepil/session-logger/main/bootstrap.sh)"
+```
+
+Clones into `~/.session-logger` (override with `SESSION_LOGGER_DIR=...`), prompts for your Obsidian vault and learning focus areas, writes `.env`, runs `install.sh`. Requires `git`, `bun`, and the [obsidian CLI](https://github.com/Yakitrak/obsidian-cli) on PATH.
+
+## Manual install
+
+```
+git clone https://github.com/junepil/session-logger.git
+cd session-logger
 cp .env.example .env   # then edit .env (see Configuration below)
 ./install.sh
 ```
 
-The installer creates one symlink (`~/.claude/hooks/session-logger.ts`) and prints the settings.json command to wire in. Prompts live in `prompts/` and are loaded by the script from its real path (no second symlink needed).
+`install.sh` creates the hook symlink at `~/.claude/hooks/session-logger.ts` and appends our SessionEnd hook to `~/.claude/settings.json` (append-only — your existing hooks are preserved, and re-running is idempotent). A backup of `settings.json` is saved before any change.
 
 ## Configuration
 
