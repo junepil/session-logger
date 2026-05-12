@@ -1,8 +1,7 @@
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync, appendFileSync } from "node:fs"
 import { spawn } from "node:child_process"
-import { dirname, basename } from "node:path"
+import { dirname, basename, join } from "node:path"
 import { homedir } from "node:os"
-import { join } from "node:path"
 
 export function parseHookInput(json: string): { sessionId: string } | null {
   try {
@@ -338,7 +337,10 @@ async function runWorker(sessionId: string): Promise<void> {
   }
 
   const conceptsResult = await invokeClaudePrint(`${conceptsPrompt}\n\n${transcript}`)
-  if (!conceptsResult.ok) return
+  if (!conceptsResult.ok) {
+    appendErrorLog("worker.concepts", conceptsResult.reason)
+    return
+  }
   const concepts = parseConcepts(conceptsResult.text)
   for (const c of concepts) {
     const tags = (c.tags ?? []).join(", ")
