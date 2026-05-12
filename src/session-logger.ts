@@ -241,6 +241,17 @@ async function obsidianAppend(path: string, content: string): Promise<boolean> {
   return out.startsWith("Appended")
 }
 
+async function obsidianCreate(path: string, content: string): Promise<"created" | "exists" | "failed"> {
+  const out = await obsidianRun(["create", `path=${path}`, `content=${content}`])
+  const dup = detectDuplicateCreate(out)
+  if (dup) {
+    await obsidianRun(["delete", `path=${dup}`, "permanent"])
+    return "exists"
+  }
+  if (out.startsWith("Created:")) return "created"
+  return "failed"
+}
+
 if (import.meta.main) {
   if (Bun.argv.includes("--worker")) {
     const sid = getArg("--session-id")
