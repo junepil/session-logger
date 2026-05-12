@@ -1,6 +1,6 @@
 import { readFileSync, existsSync, readdirSync, statSync, realpathSync, appendFileSync } from "node:fs"
 import { spawn } from "node:child_process"
-import { dirname } from "node:path"
+import { dirname, basename } from "node:path"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -252,6 +252,107 @@ async function obsidianCreate(path: string, content: string): Promise<"created" 
   return "failed"
 }
 
+async function isObsidianRunning(): Promise<boolean> {
+  const proc = Bun.spawn(["pgrep", "-x", "Obsidian"], { stdout: "pipe" })
+  await proc.exited
+  return proc.exitCode === 0
+}
+
+const SUMMARY_PROMPT_PATH = join(PROMPTS_DIR, "session-summary.md")
+const CONCEPTS_PROMPT_PATH = join(PROMPTS_DIR, "session-concepts.md")
+
+function loadPromptOrNull(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8")
+  } catch {
+    return null
+  }
+}
+
+function formatJournalEntry(time: string, cwdName: string, body: string): string {
+  return `\n## [${time} | ${cwdName}]\n\n${body}\n`
+}
+
+function todayInSeoul(): { date: string; time: string } {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  })
+  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]))
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}:${parts.second}`,
+  }
+}
+
+async function runWorker(sessionId: string): Promise<void> {
+  if (!VAULT) {
+    appendErrorLog("worker.config", "OBSIDIAN_VAULT not set in .env (expected at " + join(PROJECT_ROOT, ".env") + ")")
+    return
+  }
+
+  await Bun.sleep(3000)
+
+  if (!(await isObsidianRunning())) {
+    console.error("Obsidian not running, skipping session log")
+    return
+  }
+
+  const jsonl = findJsonlPath(sessionId)
+  if (!jsonl) {
+    console.error(`JSONL not found for session ${sessionId}`)
+    return
+  }
+
+  const transcript = extractTranscript(jsonl)
+  if (transcript.length === 0) {
+    console.error(`Transcript empty for session ${sessionId}`)
+    return
+  }
+
+  const { date, time } = todayInSeoul()
+  const cwdName = basename(process.cwd())
+  const journalPath = `journal/${date}.md`
+
+  const summaryPrompt = loadPromptOrNull(SUMMARY_PROMPT_PATH)
+  if (summaryPrompt === null) {
+    await obsidianAppend(
+      journalPath,
+      formatJournalEntry(time, cwdName, `(prompt file missing: ${SUMMARY_PROMPT_PATH})`),
+    )
+    return
+  }
+
+  const summaryResult = await invokeClaudePrint(`${summaryPrompt}\n\n${transcript}`)
+  const summaryBody = summaryResult.ok ? summaryResult.text : `(요약 실패 - ${summaryResult.reason})`
+  await obsidianAppend(journalPath, formatJournalEntry(time, cwdName, summaryBody))
+
+  const conceptsPrompt = loadPromptOrNull(CONCEPTS_PROMPT_PATH)
+  if (conceptsPrompt === null) {
+    await obsidianAppend(
+      journalPath,
+      formatJournalEntry(time, cwdName, `(prompt file missing: ${CONCEPTS_PROMPT_PATH})`),
+    )
+    return
+  }
+
+  const conceptsResult = await invokeClaudePrint(`${conceptsPrompt}\n\n${transcript}`)
+  if (!conceptsResult.ok) return
+  const concepts = parseConcepts(conceptsResult.text)
+  for (const c of concepts) {
+    const tags = (c.tags ?? []).join(", ")
+    const content =
+      `---\ntitle: ${c.title}\ndate: ${date}\ntype: concept\ntags: [${tags}]\n---\n\n` +
+      `## Summary\n${c.summary ?? ""}\n\n` +
+      `## Details\n${c.details ?? ""}\n`
+    const result = await obsidianCreate(`concepts/${c.filename}`, content)
+    if (result === "failed") {
+      appendErrorLog("worker.concept.create", `failed: ${c.filename}`)
+    }
+  }
+}
+
 if (import.meta.main) {
   if (Bun.argv.includes("--worker")) {
     const sid = getArg("--session-id")
@@ -259,7 +360,11 @@ if (import.meta.main) {
       appendErrorLog("worker.entry", "missing --session-id")
       process.exit(0)
     }
-    // runWorker added in later task — for now exit
+    try {
+      await runWorker(sid)
+    } catch (e) {
+      appendErrorLog("worker.uncaught", (e as Error).stack ?? String(e))
+    }
     process.exit(0)
   } else {
     await runParent(await Bun.stdin.text())
