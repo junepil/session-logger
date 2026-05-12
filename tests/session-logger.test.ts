@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test"
-import { parseHookInput } from "../src/session-logger.ts"
+import { parseHookInput, extractTranscript } from "../src/session-logger.ts"
+import { join } from "node:path"
 
 describe("parseHookInput", () => {
   test("returns sessionId from valid JSON", () => {
@@ -14,5 +15,21 @@ describe("parseHookInput", () => {
   })
   test("returns null when session_id not a string", () => {
     expect(parseHookInput('{"session_id":42}')).toBeNull()
+  })
+})
+
+describe("extractTranscript", () => {
+  const fixture = join(import.meta.dir, "fixtures/sample-session.jsonl")
+  test("extracts user+assistant text in order, skips tool I/O", () => {
+    const t = extractTranscript(fixture)
+    expect(t).toBe(
+      "[user] What's the weather like?\n" +
+      "[assistant] Let me check.\n" +
+      "[assistant] It's sunny outside.\n" +
+      "[user] Thanks!"
+    )
+  })
+  test("returns empty string when file missing", () => {
+    expect(extractTranscript("/nonexistent/path.jsonl")).toBe("")
   })
 })
