@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-05-12T10:00:00Z","message":{"content":"What's the weather like?"}}
+{"type":"assistant","timestamp":"2026-05-12T10:00:01Z","message":{"content":[{"type":"text","text":"Let me check."},{"type":"tool_use","id":"t1","name":"weather","input":{}}]}}
+{"type":"user","timestamp":"2026-05-12T10:00:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"sunny"}]}}
+{"type":"assistant","timestamp":"2026-05-12T10:00:03Z","message":{"content":[{"type":"text","text":"It's sunny outside."}]}}
+{"type":"user","timestamp":"2026-05-12T10:00:04Z","message":{"content":"Thanks!"}}
