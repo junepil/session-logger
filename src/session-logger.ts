@@ -1,4 +1,6 @@
-import { readFileSync, existsSync } from "node:fs"
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
+import { homedir } from "node:os"
+import { join } from "node:path"
 
 export function parseHookInput(json: string): { sessionId: string } | null {
   try {
@@ -39,4 +41,25 @@ export function extractTranscript(jsonlPath: string): string {
   }
   items.sort((a, b) => a.ts.localeCompare(b.ts))
   return items.map(i => `[${i.role}] ${i.text}`).join("\n")
+}
+
+export function findJsonlPath(
+  sessionId: string,
+  projectsRoot: string = join(homedir(), ".claude", "projects"),
+): string | null {
+  let projectDirs: string[]
+  try {
+    projectDirs = readdirSync(projectsRoot)
+  } catch {
+    return null
+  }
+  for (const dir of projectDirs) {
+    const candidate = join(projectsRoot, dir, `${sessionId}.jsonl`)
+    try {
+      if (statSync(candidate).isFile()) return candidate
+    } catch {
+      continue
+    }
+  }
+  return null
 }

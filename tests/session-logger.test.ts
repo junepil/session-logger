@@ -1,6 +1,8 @@
 import { describe, test, expect } from "bun:test"
-import { parseHookInput, extractTranscript } from "../src/session-logger.ts"
+import { parseHookInput, extractTranscript, findJsonlPath } from "../src/session-logger.ts"
 import { join } from "node:path"
+import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
+import { tmpdir } from "node:os"
 
 describe("parseHookInput", () => {
   test("returns sessionId from valid JSON", () => {
@@ -31,5 +33,20 @@ describe("extractTranscript", () => {
   })
   test("returns empty string when file missing", () => {
     expect(extractTranscript("/nonexistent/path.jsonl")).toBe("")
+  })
+})
+
+describe("findJsonlPath", () => {
+  test("finds JSONL by session id under nested project dir", () => {
+    const root = mkdtempSync(join(tmpdir(), "sl-"))
+    const projectDir = join(root, "some-project")
+    mkdirSync(projectDir, { recursive: true })
+    const file = join(projectDir, "session-abc.jsonl")
+    writeFileSync(file, "")
+    expect(findJsonlPath("session-abc", root)).toBe(file)
+  })
+  test("returns null when not found", () => {
+    const root = mkdtempSync(join(tmpdir(), "sl-"))
+    expect(findJsonlPath("missing", root)).toBeNull()
   })
 })
