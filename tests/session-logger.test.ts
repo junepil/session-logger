@@ -56,6 +56,7 @@ import {
   detectDuplicateCreate,
   isClaudeKnownError,
   loadDotEnv,
+  renderPrompt,
 } from "../src/session-logger.ts"
 
 describe("parseConcepts", () => {
@@ -98,6 +99,27 @@ describe("isClaudeKnownError", () => {
   })
   test("false for normal output", () => {
     expect(isClaudeKnownError("Today we discussed ...")).toBe(false)
+  })
+})
+
+describe("renderPrompt", () => {
+  test("substitutes a single placeholder", () => {
+    expect(renderPrompt("hello {{NAME}}", { NAME: "world" })).toBe("hello world")
+  })
+  test("substitutes multiple distinct placeholders", () => {
+    expect(renderPrompt("{{A}} and {{B}}", { A: "x", B: "y" })).toBe("x and y")
+  })
+  test("substitutes repeated placeholders", () => {
+    expect(renderPrompt("{{X}}-{{X}}", { X: "z" })).toBe("z-z")
+  })
+  test("falls back to (any) when value missing", () => {
+    expect(renderPrompt("a {{MISSING}} b", {})).toBe("a (any) b")
+  })
+  test("falls back to (any) when value is empty or whitespace", () => {
+    expect(renderPrompt("{{A}}|{{B}}", { A: "", B: "   " })).toBe("(any)|(any)")
+  })
+  test("leaves text without placeholders unchanged", () => {
+    expect(renderPrompt("plain text", { A: "x" })).toBe("plain text")
   })
 })
 

@@ -1,4 +1,5 @@
-1. XML 태그(<tag>...</tag>)와 내용은 무시하세요. 
-2. 아래 대화 기록을 보고 세션을 요약하세요. 
-3. 헤더(#)를 사용해 변경 사항을 추상화된 큰 단위로 묶으세요. 헤더는 `#`, `##` 까지만 사용하세요.
-4. 불릿(-)을 한 단계 구체적인 변경사항을 기록하세요. 한 줄당 100자 이내. 다룬 이슈·파일, 기술적 결론, 완료한 것, 다음 할 일 포함.
+1. All generated output MUST always be written in Korean.
+2. Ignore XML tags (<tag>...</tag>) and their contents.
+3. Read the conversation transcript below and summarize the session.
+4. Use headers (#) to group changes into abstract, high-level units. Use only `#` and `##`.
+5. Based on the conversation, use bullets (-) to record one level more concretely **what** was done in the previous session.

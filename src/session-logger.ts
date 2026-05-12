@@ -105,6 +105,13 @@ export function isClaudeKnownError(raw: string): boolean {
   return /^(Not logged in|Error:|Invalid API key|Please run \/login)/i.test(raw.trim())
 }
 
+export function renderPrompt(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{([A-Z_][A-Z0-9_]*)\}\}/g, (_, key) => {
+    const value = vars[key]?.trim()
+    return value && value.length > 0 ? value : "(any)"
+  })
+}
+
 export function loadDotEnv(content: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const line of content.split("\n")) {
@@ -336,7 +343,11 @@ async function runWorker(sessionId: string): Promise<void> {
     return
   }
 
-  const conceptsResult = await invokeClaudePrint(`${conceptsPrompt}\n\n${transcript}`)
+  const renderedConcepts = renderPrompt(conceptsPrompt, {
+    LEARNING_STACKS: ENV_CONFIG.LEARNING_STACKS ?? "",
+    LEARNING_DOMAINS: ENV_CONFIG.LEARNING_DOMAINS ?? "",
+  })
+  const conceptsResult = await invokeClaudePrint(`${renderedConcepts}\n\n${transcript}`)
   if (!conceptsResult.ok) {
     appendErrorLog("worker.concepts", conceptsResult.reason)
     return
