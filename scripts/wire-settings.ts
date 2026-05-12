@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, mkdirSync } from "node:fs"
-import { join, dirname } from "node:path"
+import { join } from "node:path"
 import { homedir } from "node:os"
 
 export type HookEntry = { type: "command"; command: string }
@@ -13,6 +13,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 function deepClone<T>(v: T): T {
+  // settings.json is plain JSON — no Dates, functions, undefined, or cycles.
   return JSON.parse(JSON.stringify(v))
 }
 
@@ -73,7 +74,7 @@ export function mergeHook(current: unknown, entry: HookEntry): MergeResult {
     if (isPlainObject(group) && !("matcher" in group)) {
       const g = group as Record<string, unknown>
       if (!Array.isArray(g.hooks)) {
-        g.hooks = []
+        throw new Error("settings.hooks.SessionEnd[].hooks must be an array")
       }
       ;(g.hooks as unknown[]).push(entry)
       return { result, status: "appended" }

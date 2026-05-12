@@ -12,6 +12,12 @@ describe("mergeHook", () => {
     expect((out.result as any).hooks.SessionEnd[0].hooks).toEqual([entry])
   })
 
+  test("undefined input is treated like null (created)", () => {
+    const out = mergeHook(undefined, entry)
+    expect(out.status).toBe("created")
+    expect((out.result as any).hooks.SessionEnd[0].hooks).toEqual([entry])
+  })
+
   test("creates skeleton on empty object, no other keys", () => {
     const out = mergeHook({}, entry)
     expect(out.status).toBe("created")
@@ -61,6 +67,22 @@ describe("mergeHook", () => {
     expect(se[1].matcher).toBeUndefined()
   })
 
+  test("appends to no-matcher group even when matcher group precedes it", () => {
+    const matcherGroup = { matcher: "PreTool", hooks: [other] }
+    const input = {
+      hooks: {
+        SessionEnd: [
+          matcherGroup,
+          { hooks: [existing] },
+        ],
+      },
+    }
+    const out = mergeHook(input, entry)
+    expect(out.status).toBe("appended")
+    expect((out.result as any).hooks.SessionEnd[0]).toEqual(matcherGroup)
+    expect((out.result as any).hooks.SessionEnd[1].hooks).toEqual([existing, entry])
+  })
+
   test("idempotent: returns already-wired when entry already present in no-matcher group", () => {
     const input = { hooks: { SessionEnd: [{ hooks: [entry] }] } }
     const out = mergeHook(input, entry)
@@ -85,6 +107,11 @@ describe("mergeHook", () => {
 
   test("throws when SessionEnd is not an array", () => {
     expect(() => mergeHook({ hooks: { SessionEnd: "x" } }, entry)).toThrow("SessionEnd")
+  })
+
+  test("throws when no-matcher group has non-array hooks", () => {
+    expect(() => mergeHook({ hooks: { SessionEnd: [{ hooks: "nope" }] } }, entry))
+      .toThrow(/SessionEnd\[\]\.hooks must be an array/)
   })
 
   test("purity: mutating the result does not affect the input", () => {
