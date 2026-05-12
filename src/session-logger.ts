@@ -63,3 +63,59 @@ export function findJsonlPath(
   }
   return null
 }
+
+export interface Concept {
+  filename: string
+  title: string
+  tags?: string[]
+  summary?: string
+  details?: string
+}
+
+export function parseConcepts(raw: string): Concept[] {
+  const match = raw.match(/\[[\s\S]*\]/)
+  if (!match) return []
+  let arr: unknown
+  try {
+    arr = JSON.parse(match[0])
+  } catch {
+    return []
+  }
+  if (!Array.isArray(arr)) return []
+  const out: Concept[] = []
+  for (const c of arr) {
+    if (
+      c && typeof c === "object" &&
+      typeof (c as any).filename === "string" &&
+      typeof (c as any).title === "string"
+    ) {
+      out.push(c as Concept)
+    }
+  }
+  return out
+}
+
+export function detectDuplicateCreate(cliOutput: string): string | null {
+  const m = cliOutput.match(/^Created:\s*(.+ 1\.md)\s*$/m)
+  return m ? m[1] : null
+}
+
+export function isClaudeKnownError(raw: string): boolean {
+  return /^(Not logged in|Error:|Invalid API key|Please run \/login)/i.test(raw.trim())
+}
+
+export function loadDotEnv(content: string): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#")) continue
+    const m = trimmed.match(/^([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$/i)
+    if (!m) continue
+    let v = m[2].trim()
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1)
+    }
+    env[m[1]] = v
+  }
+  return env
+}
