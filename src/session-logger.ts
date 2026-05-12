@@ -1,4 +1,6 @@
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync, appendFileSync } from "node:fs"
+import { spawn } from "node:child_process"
+import { dirname } from "node:path"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -118,4 +120,70 @@ export function loadDotEnv(content: string): Record<string, string> {
     env[m[1]] = v
   }
   return env
+}
+
+const BUN_PATH = "/Users/junepil.lee/.bun/bin/bun"
+const ERROR_LOG = join(homedir(), ".claude", "hooks", "session-logger.error.log")
+
+// Resolve project root from the script's REAL path (handles symlinks).
+// Bun.argv[1] is the path as invoked (often the symlink in ~/.claude/hooks/).
+// realpathSync resolves to the actual file in ~/projects/session-logger/src/.
+const SCRIPT_REAL_PATH: string = (() => {
+  try { return realpathSync(Bun.argv[1] ?? "") } catch { return "" }
+})()
+const PROJECT_ROOT: string = SCRIPT_REAL_PATH ? dirname(dirname(SCRIPT_REAL_PATH)) : ""
+const ENV_CONFIG: Record<string, string> = (() => {
+  if (!PROJECT_ROOT) return {}
+  try {
+    return loadDotEnv(readFileSync(join(PROJECT_ROOT, ".env"), "utf8"))
+  } catch { return {} }
+})()
+const VAULT: string = ENV_CONFIG.OBSIDIAN_VAULT ?? ""
+const PROMPTS_DIR: string = PROJECT_ROOT ? join(PROJECT_ROOT, "prompts") : ""
+
+function appendErrorLog(stage: string, msg: string): void {
+  try {
+    appendFileSync(ERROR_LOG, `[${new Date().toISOString()}] [${stage}] ${msg}\n`)
+  } catch {}
+}
+
+async function runParent(stdin: string): Promise<void> {
+  if (process.env.CLAUDE_LTM_RUNNING) return
+  const parsed = parseHookInput(stdin)
+  if (!parsed) return
+  try {
+    const child = spawn(
+      BUN_PATH,
+      [Bun.argv[1], "--worker", "--session-id", parsed.sessionId],
+      {
+        detached: true,
+        stdio: "ignore",
+        env: { ...process.env, CLAUDE_LTM_RUNNING: "1" },
+      },
+    )
+    child.unref()
+  } catch (e) {
+    appendErrorLog("parent.spawn", (e as Error).message)
+  }
+}
+
+function getArg(name: string): string | null {
+  const i = Bun.argv.indexOf(name)
+  if (i < 0 || i + 1 >= Bun.argv.length) return null
+  return Bun.argv[i + 1]
+}
+
+if (import.meta.main) {
+  if (Bun.argv.includes("--worker")) {
+    const sid = getArg("--session-id")
+    if (!sid) {
+      appendErrorLog("worker.entry", "missing --session-id")
+      process.exit(0)
+    }
+    // runWorker added in later task — for now exit
+    process.exit(0)
+  } else {
+    await runParent(await Bun.stdin.text())
+    process.exit(0)
+  }
 }
