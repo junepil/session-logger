@@ -59,7 +59,9 @@ is_session_logger_repo() {
 if [[ -e "$INSTALL_DIR" ]]; then
   if is_session_logger_repo "$INSTALL_DIR"; then
     info "Updating existing checkout at $INSTALL_DIR"
-    git -C "$INSTALL_DIR" pull --ff-only
+    if ! git -C "$INSTALL_DIR" pull --ff-only; then
+      fail "Failed to fast-forward $INSTALL_DIR. Stash/commit local changes or remove the directory and re-run."
+    fi
   else
     fail "$INSTALL_DIR exists but is not the session-logger repo. Remove it or set SESSION_LOGGER_DIR to a different path."
   fi
@@ -166,18 +168,13 @@ fi
 
 format_env_value() {
   local val="$1"
-  if [[ "$val" == *'"'* ]]; then
-    fail "Value contains a double-quote character, which is not supported: $val"
+  if [[ -z "$val" ]]; then
+    return 0
   fi
-  # Quote if value contains whitespace or commas, otherwise emit bare.
   case "$val" in
-    *[[:space:],]*)
-      printf '"%s"' "$val"
-      ;;
-    *)
-      printf '%s' "$val"
-      ;;
+    *"'"*) fail "Value cannot contain a literal single quote: $val" ;;
   esac
+  printf "'%s'" "$val"
 }
 
 env_tmp="$INSTALL_DIR/.env.tmp"
