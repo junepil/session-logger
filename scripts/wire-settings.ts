@@ -29,6 +29,30 @@ function hasEntry(group: unknown, entry: HookEntry): boolean {
   return false
 }
 
+function shQuote(s: string): string {
+  // Bash single quotes are literal; embed a single quote via close-escape-open trick.
+  return `'${s.replace(/'/g, "'\\''")}'`
+}
+
+function hasCommand(current: unknown, cmd: string): boolean {
+  if (!isPlainObject(current)) return false
+  const hooks = (current as any).hooks
+  if (!isPlainObject(hooks)) return false
+  const sessionEnd = (hooks as any).SessionEnd
+  if (!Array.isArray(sessionEnd)) return false
+  for (const group of sessionEnd) {
+    if (!isPlainObject(group)) continue
+    const groupHooks = (group as any).hooks
+    if (!Array.isArray(groupHooks)) continue
+    for (const h of groupHooks) {
+      if (isPlainObject(h) && (h as any).type === "command" && (h as any).command === cmd) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 export function mergeHook(current: unknown, entry: HookEntry): MergeResult {
   if (current === null || current === undefined) {
     return {
@@ -109,7 +133,6 @@ if (import.meta.main) {
     printUsage()
     process.exit(2)
   }
-  const entry: HookEntry = { type: "command", command: `${args.bun} ${args.script}` }
   const claudeDir = join(homedir(), ".claude")
   const settingsPath = join(claudeDir, "settings.json")
 
@@ -129,6 +152,18 @@ if (import.meta.main) {
       console.error(`Failed to parse ${settingsPath}: ${msg}`)
       process.exit(1)
     }
+  }
+
+  // Before calling mergeHook, check whether the unquoted form is already present in the file.
+  // If so, use that as the entry so mergeHook reports "already-wired" without changes.
+  const quotedCommand = `${shQuote(args.bun)} ${shQuote(args.script)}`
+  const legacyCommand = `${args.bun} ${args.script}`
+  const entry: HookEntry = { type: "command", command: quotedCommand }
+
+  if (current && hasCommand(current, legacyCommand)) {
+    // Legacy unquoted entry exists; treat as already-wired by passing the legacy form.
+    // mergeHook will see it matches and return "already-wired".
+    entry.command = legacyCommand
   }
 
   const { result, status } = mergeHook(current, entry)

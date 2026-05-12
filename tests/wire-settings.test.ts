@@ -114,6 +114,16 @@ describe("mergeHook", () => {
       .toThrow(/SessionEnd\[\]\.hooks must be an array/)
   })
 
+  test("entries with shell-quoted commands match exactly on idempotency", () => {
+    const entry: HookEntry = {
+      type: "command",
+      command: "'/path with space/bun' '/another path/hook.ts'",
+    }
+    const input = { hooks: { SessionEnd: [{ hooks: [entry] }] } }
+    const out = mergeHook(input, entry)
+    expect(out.status).toBe("already-wired")
+  })
+
   test("purity: mutating the result does not affect the input", () => {
     const input = { hooks: { SessionEnd: [{ hooks: [existing] }] } }
     const out = mergeHook(input, entry)
