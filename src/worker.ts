@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import { VAULT, PROJECT_ROOT, PROMPTS_DIR, ENV_CONFIG, appendErrorLog } from "./config.ts"
 import { extractTranscript, findJsonlPath, parseConcepts, renderPrompt } from "./parsers.ts"
@@ -8,9 +7,9 @@ import { obsidianAppend, obsidianCreate, isObsidianRunning } from "./obsidian.ts
 const SUMMARY_PROMPT_PATH = join(PROMPTS_DIR, "session-summary.md")
 const CONCEPTS_PROMPT_PATH = join(PROMPTS_DIR, "session-concepts.md")
 
-function loadPromptOrNull(path: string): string | null {
+async function loadPromptOrNull(path: string): Promise<string | null> {
   try {
-    return readFileSync(path, "utf8")
+    return await Bun.file(path).text()
   } catch {
     return null
   }
@@ -62,7 +61,7 @@ export async function runWorker(sessionId: string): Promise<void> {
   const cwdName = basename(process.cwd())
   const journalPath = `journal/${date}.md`
 
-  const summaryPrompt = loadPromptOrNull(SUMMARY_PROMPT_PATH)
+  const summaryPrompt = await loadPromptOrNull(SUMMARY_PROMPT_PATH)
   if (summaryPrompt === null) {
     await obsidianAppend(
       journalPath,
@@ -75,7 +74,7 @@ export async function runWorker(sessionId: string): Promise<void> {
   const summaryBody = summaryResult.ok ? summaryResult.text : `(요약 실패 - ${summaryResult.reason})`
   await obsidianAppend(journalPath, formatJournalEntry(time, cwdName, summaryBody))
 
-  const conceptsPrompt = loadPromptOrNull(CONCEPTS_PROMPT_PATH)
+  const conceptsPrompt = await loadPromptOrNull(CONCEPTS_PROMPT_PATH)
   if (conceptsPrompt === null) {
     await obsidianAppend(
       journalPath,
