@@ -1,6 +1,5 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { homedir } from "node:os"
 
 export function parseHookInput(json: string): { sessionId: string } | null {
   try {
@@ -45,7 +44,7 @@ export function extractTranscript(jsonlPath: string): string {
 
 export function findJsonlPath(
   sessionId: string,
-  projectsRoot: string = join(homedir(), ".claude", "projects"),
+  projectsRoot: string = join(process.env.HOME ?? "", ".claude", "projects"),
 ): string | null {
   let projectDirs: string[]
   try {
