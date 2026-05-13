@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { mergeHook, type HookEntry } from "../scripts/wire-settings.ts"
+import { mergeHook, removeCommand, type HookEntry } from "../scripts/wire-settings.ts"
 
 const entry: HookEntry = { type: "command", command: "/bun /hook.ts" }
 const existing: HookEntry = { type: "command", command: "/bun /other.ts" }
@@ -133,5 +133,77 @@ describe("mergeHook", () => {
     se[0].hooks.push({ type: "command", command: "y" })
     // The original input should be unchanged
     expect(input).toEqual({ hooks: { SessionEnd: [{ hooks: [existing] }] } })
+  })
+})
+
+describe("removeCommand", () => {
+  const legacy: HookEntry = { type: "command", command: "/bun /legacy.ts" }
+  const third: HookEntry = { type: "command", command: "/bun /third.ts" }
+
+  test("removes the matching entry; leaves other entries intact", () => {
+    const input = { hooks: { SessionEnd: [{ hooks: [other, legacy, third] }] } }
+    const out = removeCommand(input, legacy.command)
+    expect(out.removed).toBe(true)
+    expect((out.result as any).hooks.SessionEnd[0].hooks).toEqual([other, third])
+  })
+
+  test("no match anywhere returns removed:false and structurally-equal result", () => {
+    const input = { hooks: { SessionEnd: [{ hooks: [other, third] }] } }
+    const out = removeCommand(input, legacy.command)
+    expect(out.removed).toBe(false)
+    expect(out.result).toEqual(input)
+  })
+
+  test("walks matcher and no-matcher groups; keeps group when its hooks become empty", () => {
+    const input = {
+      hooks: {
+        SessionEnd: [
+          { matcher: "X", hooks: [legacy] },
+          { hooks: [other] },
+        ],
+      },
+    }
+    const out = removeCommand(input, legacy.command)
+    expect(out.removed).toBe(true)
+    const se = (out.result as any).hooks.SessionEnd
+    expect(se.length).toBe(2)
+    expect(se[0]).toEqual({ matcher: "X", hooks: [] })
+    expect(se[1]).toEqual({ hooks: [other] })
+  })
+
+  test("removes duplicates across multiple groups", () => {
+    const input = {
+      hooks: {
+        SessionEnd: [
+          { hooks: [legacy, other] },
+          { matcher: "Y", hooks: [legacy] },
+        ],
+      },
+    }
+    const out = removeCommand(input, legacy.command)
+    expect(out.removed).toBe(true)
+    const se = (out.result as any).hooks.SessionEnd
+    expect(se[0].hooks).toEqual([other])
+    expect(se[1].hooks).toEqual([])
+  })
+
+  test("defensive on malformed inputs — never throws", () => {
+    expect(removeCommand(null, "x").removed).toBe(false)
+    expect(removeCommand(null, "x").result).toBeNull()
+    expect(removeCommand({ otherKey: 1 }, "x")).toEqual({ result: { otherKey: 1 }, removed: false })
+    expect(removeCommand({ hooks: "nope" }, "x")).toEqual({ result: { hooks: "nope" }, removed: false })
+    expect(removeCommand({ hooks: { SessionEnd: "nope" } }, "x"))
+      .toEqual({ result: { hooks: { SessionEnd: "nope" } }, removed: false })
+    const groupMalformed = { hooks: { SessionEnd: [{ matcher: "X" }, { hooks: "nope" }] } }
+    expect(removeCommand(groupMalformed, "x")).toEqual({ result: groupMalformed, removed: false })
+  })
+
+  test("purity: mutating the result does not affect the input", () => {
+    const input = { hooks: { SessionEnd: [{ hooks: [other, legacy] }] } }
+    const out = removeCommand(input, legacy.command)
+    const se = (out.result as any).hooks.SessionEnd
+    se[0].hooks.push({ type: "command", command: "z" })
+    se.push({ hooks: [] })
+    expect(input).toEqual({ hooks: { SessionEnd: [{ hooks: [other, legacy] }] } })
   })
 })

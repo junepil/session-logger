@@ -53,6 +53,34 @@ function hasCommand(current: unknown, cmd: string): boolean {
   return false
 }
 
+export function removeCommand(
+  current: unknown,
+  exactCommand: string,
+): { result: object; removed: boolean } {
+  const result = deepClone(current) as object
+  if (!isPlainObject(result)) return { result, removed: false }
+  const hooks = (result as any).hooks
+  if (!isPlainObject(hooks)) return { result, removed: false }
+  const sessionEnd = (hooks as any).SessionEnd
+  if (!Array.isArray(sessionEnd)) return { result, removed: false }
+  let removed = false
+  for (const group of sessionEnd) {
+    if (!isPlainObject(group)) continue
+    const groupHooks = (group as any).hooks
+    if (!Array.isArray(groupHooks)) continue
+    const filtered = groupHooks.filter((h) => {
+      const match =
+        isPlainObject(h) &&
+        (h as any).type === "command" &&
+        (h as any).command === exactCommand
+      if (match) removed = true
+      return !match
+    })
+    ;(group as any).hooks = filtered
+  }
+  return { result, removed }
+}
+
 export function mergeHook(current: unknown, entry: HookEntry): MergeResult {
   if (current === null || current === undefined) {
     return {
@@ -110,21 +138,25 @@ export function mergeHook(current: unknown, entry: HookEntry): MergeResult {
   return { result, status: "pushed-group" }
 }
 
-function parseArgs(argv: string[]): { bun?: string; script?: string } {
-  const out: { bun?: string; script?: string } = {}
+function parseArgs(argv: string[]): { bun?: string; script?: string; removeLegacy?: string } {
+  const out: { bun?: string; script?: string; removeLegacy?: string } = {}
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === "--bun") {
       out.bun = argv[++i]
     } else if (a === "--script") {
       out.script = argv[++i]
+    } else if (a === "--remove-legacy") {
+      out.removeLegacy = argv[++i]
     }
   }
   return out
 }
 
 function printUsage(): void {
-  console.error("Usage: wire-settings.ts --bun <bun-binary-path> --script <hook-entry-script-path>")
+  console.error(
+    "Usage: wire-settings.ts --bun <bun-binary-path> --script <hook-entry-script-path> [--remove-legacy <exact-command>]",
+  )
 }
 
 if (import.meta.main) {
@@ -154,6 +186,18 @@ if (import.meta.main) {
     }
   }
 
+  // One-shot legacy removal pass: strip any entry whose .command exactly matches
+  // the provided --remove-legacy string before the normal merge proceeds.
+  let removedLegacy = false
+  if (args.removeLegacy && current) {
+    const { result: stripped, removed } = removeCommand(current, args.removeLegacy)
+    if (removed) {
+      current = stripped
+      removedLegacy = true
+      console.log("Wire-settings: removed legacy entry from ~/.claude/settings.json")
+    }
+  }
+
   // Before calling mergeHook, check whether the unquoted form is already present in the file.
   // If so, use that as the entry so mergeHook reports "already-wired" without changes.
   const quotedCommand = `${shQuote(args.bun)} ${shQuote(args.script)}`
@@ -168,7 +212,7 @@ if (import.meta.main) {
 
   const { result, status } = mergeHook(current, entry)
 
-  if (status === "already-wired") {
+  if (status === "already-wired" && !removedLegacy) {
     console.log("SessionEnd hook already present in ~/.claude/settings.json — nothing to do.")
     process.exit(0)
   }
