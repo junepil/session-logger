@@ -19,7 +19,7 @@ cp .env.example .env   # then edit .env (see Configuration below)
 ./install.sh
 ```
 
-`install.sh` creates the hook symlink at `~/.claude/hooks/session-logger.ts` and appends our SessionEnd hook to `~/.claude/settings.json` (append-only — your existing hooks are preserved, and re-running is idempotent). A backup of `settings.json` is saved before any change.
+`install.sh` builds the bundle (`dist/session-logger.js`) via `bun run build`, symlinks it at `~/.claude/hooks/session-logger.js`, and appends our SessionEnd hook to `~/.claude/settings.json` (append-only — your existing hooks are preserved, and re-running is idempotent). A backup of `settings.json` is saved before any change.
 
 ## Configuration
 
@@ -37,10 +37,10 @@ Hook is invoked by Claude Code via `~/.claude/settings.json`. Manual invocation:
 
 ```
 # parent (reads stdin, spawns worker, exits fast)
-echo '{"session_id":"<id>"}' | bun src/session-logger.ts
+echo '{"session_id":"<id>"}' | bun src/index.ts
 
 # worker only (for debugging)
-bun src/session-logger.ts --worker --session-id <id>
+bun src/index.ts --worker --session-id <id>
 ```
 
 ## Test

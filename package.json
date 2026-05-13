@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bun build src/index.ts --target=bun --outdir=dist --entry-naming=session-logger.js --sourcemap=linked",
     "test": "bun test",
-    "start": "bun src/session-logger.ts"
+    "start": "bun src/index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

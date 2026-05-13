@@ -12,10 +12,22 @@ fi
 
 mkdir -p "$HOOKS_DIR"
 
-# Single symlink: the entry script.
+LEGACY_SCRIPT="$HOOKS_DIR/session-logger.ts"
+NEW_SCRIPT="$HOOKS_DIR/session-logger.js"
+BUNDLE="$PROJECT_DIR/dist/session-logger.js"
+
+# Remove the legacy .ts symlink left by previous installs.
+if [ -L "$LEGACY_SCRIPT" ]; then
+  rm "$LEGACY_SCRIPT"
+fi
+
+# Build the bundle from src/ into dist/.
+( cd "$PROJECT_DIR" && "$BUN_BIN" run build )
+
+# Single symlink: the bundled entry script.
 # Prompts and .env are NOT symlinked — the script resolves them from its real
 # path via realpathSync(Bun.argv[1]).
-ln -sfn "$PROJECT_DIR/src/session-logger.ts" "$HOOKS_DIR/session-logger.ts"
+ln -sfn "$BUNDLE" "$NEW_SCRIPT"
 
 # Refuse to proceed if .env is missing — worker would silently no-op.
 if [[ ! -f "$PROJECT_DIR/.env" ]]; then
@@ -23,9 +35,11 @@ if [[ ! -f "$PROJECT_DIR/.env" ]]; then
 fi
 
 echo "Installed symlink:"
-ls -la "$HOOKS_DIR/session-logger.ts"
+ls -la "$NEW_SCRIPT"
 
-HOOK_SCRIPT="$HOOKS_DIR/session-logger.ts"
-"$BUN_BIN" "$PROJECT_DIR/scripts/wire-settings.ts" --bun "$BUN_BIN" --script "$HOOK_SCRIPT"
+"$BUN_BIN" "$PROJECT_DIR/scripts/wire-settings.ts" \
+  --bun "$BUN_BIN" \
+  --script "$NEW_SCRIPT" \
+  --remove-legacy "$BUN_BIN $LEGACY_SCRIPT"
 
 echo "Install complete."
