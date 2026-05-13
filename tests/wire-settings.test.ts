@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test"
-import { mergeHook, removeCommand, type HookEntry } from "../scripts/wire-settings.ts"
+import {
+  mergeHook,
+  removeCommand,
+  legacyCommandVariants,
+  type HookEntry,
+} from "../scripts/wire-settings.ts"
 
 const entry: HookEntry = { type: "command", command: "/bun /hook.ts" }
 const existing: HookEntry = { type: "command", command: "/bun /other.ts" }
@@ -213,5 +218,11 @@ describe("removeCommand", () => {
     se[0].hooks.push({ type: "command", command: "z" })
     se.push({ hooks: [] })
     expect(input).toEqual({ hooks: { SessionEnd: [{ hooks: [other, legacy] }] } })
+  })
+})
+
+describe("legacyCommandVariants", () => {
+  test("returns both unquoted and shell-quoted forms", () => {
+    expect(legacyCommandVariants("/b", "/s")).toEqual(["/b /s", "'/b' '/s'"])
   })
 })

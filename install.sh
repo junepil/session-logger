@@ -40,6 +40,7 @@ ls -la "$NEW_SCRIPT"
 "$BUN_BIN" "$PROJECT_DIR/scripts/wire-settings.ts" \
   --bun "$BUN_BIN" \
   --script "$NEW_SCRIPT" \
-  --remove-legacy "$BUN_BIN $LEGACY_SCRIPT"
+  --legacy-bun "$BUN_BIN" \
+  --legacy-script "$LEGACY_SCRIPT"
 
 echo "Install complete."

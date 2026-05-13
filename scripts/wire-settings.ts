@@ -34,6 +34,13 @@ function shQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`
 }
 
+export function legacyCommandVariants(bun: string, script: string): string[] {
+  // Both shapes ever produced by past install scripts:
+  //   - unquoted: `<bun> <script>` (pre-f3fcae4)
+  //   - quoted:   `'<bun>' '<script>'` (f3fcae4 .. bundler refactor)
+  return [`${bun} ${script}`, `${shQuote(bun)} ${shQuote(script)}`]
+}
+
 function hasCommand(current: unknown, cmd: string): boolean {
   if (!isPlainObject(current)) return false
   const hooks = (current as any).hooks
@@ -138,8 +145,16 @@ export function mergeHook(current: unknown, entry: HookEntry): MergeResult {
   return { result, status: "pushed-group" }
 }
 
-function parseArgs(argv: string[]): { bun?: string; script?: string; removeLegacy?: string } {
-  const out: { bun?: string; script?: string; removeLegacy?: string } = {}
+type Args = {
+  bun?: string
+  script?: string
+  removeLegacy?: string
+  legacyBun?: string
+  legacyScript?: string
+}
+
+function parseArgs(argv: string[]): Args {
+  const out: Args = {}
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === "--bun") {
@@ -148,6 +163,10 @@ function parseArgs(argv: string[]): { bun?: string; script?: string; removeLegac
       out.script = argv[++i]
     } else if (a === "--remove-legacy") {
       out.removeLegacy = argv[++i]
+    } else if (a === "--legacy-bun") {
+      out.legacyBun = argv[++i]
+    } else if (a === "--legacy-script") {
+      out.legacyScript = argv[++i]
     }
   }
   return out
@@ -155,7 +174,7 @@ function parseArgs(argv: string[]): { bun?: string; script?: string; removeLegac
 
 function printUsage(): void {
   console.error(
-    "Usage: wire-settings.ts --bun <bun-binary-path> --script <hook-entry-script-path> [--remove-legacy <exact-command>]",
+    "Usage: wire-settings.ts --bun <bun-binary-path> --script <hook-entry-script-path> [--remove-legacy <exact-command>] [--legacy-bun <path> --legacy-script <path>]",
   )
 }
 
@@ -187,13 +206,26 @@ if (import.meta.main) {
   }
 
   // One-shot legacy removal pass: strip any entry whose .command exactly matches
-  // the provided --remove-legacy string before the normal merge proceeds.
+  // one of the legacy-command shapes before the normal merge proceeds.
+  //   --remove-legacy <cmd>                : raw escape hatch (back-compat)
+  //   --legacy-bun + --legacy-script <p>   : both unquoted and quoted variants
+  // Flags are additive; if both are supplied, all matches are removed.
+  const legacyCommandsToRemove: string[] = []
+  if (args.removeLegacy) legacyCommandsToRemove.push(args.removeLegacy)
+  if (args.legacyBun && args.legacyScript) {
+    legacyCommandsToRemove.push(...legacyCommandVariants(args.legacyBun, args.legacyScript))
+  }
+
   let removedLegacy = false
-  if (args.removeLegacy && current) {
-    const { result: stripped, removed } = removeCommand(current, args.removeLegacy)
-    if (removed) {
-      current = stripped
-      removedLegacy = true
+  if (current && legacyCommandsToRemove.length > 0) {
+    for (const cmd of legacyCommandsToRemove) {
+      const { result: stripped, removed } = removeCommand(current, cmd)
+      if (removed) {
+        current = stripped
+        removedLegacy = true
+      }
+    }
+    if (removedLegacy) {
       console.log("Wire-settings: removed legacy entry from ~/.claude/settings.json")
     }
   }
