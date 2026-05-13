@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { parseHookInput } from "./parsers.ts"
 import { BUN_PATH, appendErrorLog } from "./config.ts"
 
@@ -7,12 +6,12 @@ export async function runParent(stdin: string): Promise<void> {
   const parsed = parseHookInput(stdin)
   if (!parsed) return
   try {
-    const child = spawn(
-      BUN_PATH,
-      [Bun.argv[1], "--worker", "--session-id", parsed.sessionId],
+    const child = Bun.spawn(
+      [BUN_PATH, Bun.argv[1] as string, "--worker", "--session-id", parsed.sessionId],
       {
-        detached: true,
-        stdio: "ignore",
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "ignore",
         env: { ...process.env, CLAUDE_LTM_RUNNING: "1" },
       },
     )
