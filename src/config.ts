@@ -5,7 +5,7 @@ import { loadDotEnv } from "./parsers.ts"
 
 export const BUN_PATH: string = process.env.SESSION_LOGGER_BUN
   || (typeof process.execPath === "string" && process.execPath.length > 0 ? process.execPath : "bun")
-export const ERROR_LOG = join(homedir(), ".claude", "hooks", "session-logger.error.log")
+export const ERROR_LOG: string = join(homedir(), ".claude", "hooks", "session-logger.error.log")
 
 // Resolve project root from the script's REAL path (handles symlinks).
 // Bun.argv[1] is the path as invoked (often the symlink in ~/.claude/hooks/).

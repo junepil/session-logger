@@ -198,6 +198,14 @@ describe("removeCommand", () => {
     expect(removeCommand(groupMalformed, "x")).toEqual({ result: groupMalformed, removed: false })
   })
 
+  test("does not remove entries whose type is not 'command'", () => {
+    const nonCommand = { type: "notify" as any, command: legacy.command }
+    const input = { hooks: { SessionEnd: [{ hooks: [nonCommand, other] }] } }
+    const out = removeCommand(input, legacy.command)
+    expect(out.removed).toBe(false)
+    expect((out.result as any).hooks.SessionEnd[0].hooks).toEqual([nonCommand, other])
+  })
+
   test("purity: mutating the result does not affect the input", () => {
     const input = { hooks: { SessionEnd: [{ hooks: [other, legacy] }] } }
     const out = removeCommand(input, legacy.command)
