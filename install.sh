@@ -16,13 +16,15 @@ LEGACY_SCRIPT="$HOOKS_DIR/session-logger.ts"
 NEW_SCRIPT="$HOOKS_DIR/session-logger.js"
 BUNDLE="$PROJECT_DIR/dist/session-logger.js"
 
+# Build the bundle from src/ into dist/.
+# Done BEFORE the legacy symlink is removed so a build failure leaves the
+# previous install intact rather than half-migrated.
+( cd "$PROJECT_DIR" && "$BUN_BIN" run build )
+
 # Remove the legacy .ts symlink left by previous installs.
 if [ -L "$LEGACY_SCRIPT" ]; then
   rm "$LEGACY_SCRIPT"
 fi
-
-# Build the bundle from src/ into dist/.
-( cd "$PROJECT_DIR" && "$BUN_BIN" run build )
 
 # Single symlink: the bundled entry script.
 # Prompts and .env are NOT symlinked — the script resolves them from its real
