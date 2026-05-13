@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { parseHookInput, extractTranscript, findJsonlPath } from "../src/session-logger.ts"
+import { parseHookInput, extractTranscript, findJsonlPath } from "../src/parsers.ts"
 import { join } from "node:path"
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -57,7 +57,7 @@ import {
   isClaudeKnownError,
   loadDotEnv,
   renderPrompt,
-} from "../src/session-logger.ts"
+} from "../src/parsers.ts"
 
 describe("parseConcepts", () => {
   test("extracts JSON array embedded in text", () => {
