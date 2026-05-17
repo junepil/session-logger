@@ -88,7 +88,8 @@ export function resolveVault(
     )
   }
 
-  copyFileSync(configPath, `${configPath}.bak-${now()}`)
+  const ts = now()
+  copyFileSync(configPath, `${configPath}.bak-${ts}`)
 
   mkdirSync(join(target, ".obsidian"), { recursive: true })
 
@@ -96,7 +97,7 @@ export function resolveVault(
   updated.vaults = { ...(config.vaults ?? {}) }
   updated.vaults[randomId()] = {
     path: target,
-    ts: now(),
+    ts,
     open: false,
   }
 
