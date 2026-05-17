@@ -99,9 +99,9 @@ basename(path) === input?   ── yes ──▶ use existing vault path
         ▼
 target = ~/Documents/<name>
         │
-        ├─ target already exists?  ── yes ──▶ abort with
-        │                                    "directory exists, pick
-        │                                     a different name"
+        ├─ target exists as a directory? ── yes ──▶ adopt (skip mkdir,
+        │                                            still backup + register).
+        ├─ target exists as a non-directory? ── yes ──▶ abort.
         │
         ├─ obsidian.json backup → obsidian.json.bak-<unix-ms>
         ├─ mkdir -p <target>/.obsidian
@@ -146,6 +146,11 @@ target = ~/Documents/<name>
 - `obsidian.json` present but `vaults` key missing or empty object →
   treated as "no match"; proceed to create-and-register. The writer
   initializes `vaults` to `{}` before inserting the new entry.
+- `~/Documents/<name>` exists as a directory → adopt: skip `mkdir`,
+  still backup + register. Returns `kind: "adopted"`.
+- `~/Documents/<name>` exists as a non-directory (file, symlink-to-file,
+  etc.) → abort with "<target> exists but is not a directory. Pick a
+  different vault name."
 - Orphaned entry (basename match in `obsidian.json` but the directory
   on disk is gone) → out of scope. We trust `obsidian.json`. If the
   Obsidian app errors at runtime, surface its message via the existing
@@ -272,8 +277,10 @@ contact with the real `~/Library/Application Support/obsidian/`,
 - Input matches none, target free → new entry written; id is 16 hex
   chars; `path` is absolute; `ts` is a number; existing entries
   preserved byte-for-byte.
-- Input matches none, target directory already exists → throws with
-  "directory exists" message; `obsidian.json` untouched.
+- Input matches none, target exists as a directory → adopts it; returns
+  `kind: "adopted"`; `obsidian.json` updated with new entry.
+- Input matches none, target exists as a non-directory → throws with
+  "not a directory" message; `obsidian.json` untouched.
 - Names with `/`, `\`, `'`, empty, whitespace-only → all rejected by
   validator.
 - `obsidian.json` missing → throws with installer-friendly message.

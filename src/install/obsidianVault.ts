@@ -1,6 +1,6 @@
 import {
   copyFileSync, existsSync, mkdirSync, readFileSync,
-  renameSync, writeFileSync,
+  renameSync, statSync, writeFileSync,
 } from "node:fs"
 import { basename, join } from "node:path"
 import { randomBytes } from "node:crypto"
@@ -23,6 +23,7 @@ export type ObsidianConfig = {
 
 export type VaultResolution =
   | { kind: "existing"; path: string }
+  | { kind: "adopted"; path: string }
   | { kind: "created"; path: string }
 
 export type ResolveDeps = {
@@ -82,10 +83,14 @@ export function resolveVault(
   if (existing) return { kind: "existing", path: existing }
 
   const target = join(homeDir, "Documents", name)
+  let kind: "created" | "adopted" = "created"
   if (existsSync(target)) {
-    throw new Error(
-      `${target} already exists. Pick a different vault name.`,
-    )
+    if (!statSync(target).isDirectory()) {
+      throw new Error(
+        `${target} exists but is not a directory. Pick a different vault name.`,
+      )
+    }
+    kind = "adopted"
   }
 
   const ts = now()
@@ -105,5 +110,5 @@ export function resolveVault(
   writeFileSync(tmp, JSON.stringify(updated))
   renameSync(tmp, configPath)
 
-  return { kind: "created", path: target }
+  return { kind, path: target }
 }

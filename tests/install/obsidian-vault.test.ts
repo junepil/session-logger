@@ -111,18 +111,41 @@ describe("resolveVault", () => {
     )
   })
 
-  test("aborts when target directory already exists", () => {
+  test("adopts existing directory as a vault", () => {
     const { home, configPath } = makeHome()
     writeConfig(configPath, { vaults: {}, cli: true })
     mkdirSync(join(home, "Documents", "taken"))
+    const r = resolveVault("taken", {
+      configPath,
+      homeDir: home,
+      randomId: () => "a".repeat(16),
+      now: () => 7,
+    })
+    expect(r.kind).toBe("adopted")
+    expect(r.path).toBe(join(home, "Documents", "taken"))
+    expect(
+      statSync(join(home, "Documents", "taken", ".obsidian")).isDirectory(),
+    ).toBe(true)
+    const after = JSON.parse(readFileSync(configPath, "utf8"))
+    expect(after.vaults["a".repeat(16)]).toEqual({
+      path: join(home, "Documents", "taken"),
+      ts: 7,
+      open: false,
+    })
+  })
+
+  test("throws when target exists as a non-directory", () => {
+    const { home, configPath } = makeHome()
+    writeConfig(configPath, { vaults: {}, cli: true })
+    writeFileSync(join(home, "Documents", "filename"), "oops")
     expect(() =>
-      resolveVault("taken", {
+      resolveVault("filename", {
         configPath,
         homeDir: home,
-        randomId: () => "x".repeat(16),
+        randomId: () => "b".repeat(16),
         now: () => 0,
       }),
-    ).toThrow(/already exists/)
+    ).toThrow(/not a directory/)
     expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual({
       vaults: {},
       cli: true,

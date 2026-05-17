@@ -50,7 +50,9 @@ async function main(): Promise<void> {
   spinner.stop(
     resolution.kind === "created"
       ? `Created vault at ${resolution.path}`
-      : `Using existing vault at ${resolution.path}`,
+      : resolution.kind === "adopted"
+        ? `Adopted existing folder as vault: ${resolution.path}`
+        : `Using existing vault at ${resolution.path}`,
   )
 
   try {
@@ -119,8 +121,10 @@ async function main(): Promise<void> {
     bail((err as Error).message)
   }
 
+  const justRegistered =
+    resolution.kind === "created" || resolution.kind === "adopted"
   p.outro(
-    resolution.kind === "created"
+    justRegistered
       ? `Install complete. Restart Obsidian to see vault "${vaultName}".`
       : "Install complete.",
   )
