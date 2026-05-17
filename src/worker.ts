@@ -3,6 +3,7 @@ import { VAULT, PROJECT_ROOT, PROMPTS_DIR, ENV_CONFIG, appendErrorLog } from "./
 import { extractTranscript, findJsonlPath, parseConcepts, renderPrompt } from "./parsers.ts"
 import { invokeClaudePrint } from "./claude.ts"
 import { obsidianAppend, obsidianCreate, isObsidianRunning } from "./obsidian.ts"
+import { JOURNAL_DIR, CONCEPTS_DIR } from "./vault-paths.ts"
 
 const SUMMARY_PROMPT_PATH = join(PROMPTS_DIR, "session-summary.md")
 const CONCEPTS_PROMPT_PATH = join(PROMPTS_DIR, "session-concepts.md")
@@ -59,7 +60,7 @@ export async function runWorker(sessionId: string): Promise<void> {
 
   const { date, time } = todayInSeoul()
   const cwdName = basename(process.cwd())
-  const journalPath = `journal/${date}.md`
+  const journalPath = `${JOURNAL_DIR}/${date}.md`
 
   const summaryPrompt = await loadPromptOrNull(SUMMARY_PROMPT_PATH)
   if (summaryPrompt === null) {
@@ -99,7 +100,7 @@ export async function runWorker(sessionId: string): Promise<void> {
       `---\ntitle: ${c.title}\ndate: ${date}\ntype: concept\ntags: [${tags}]\n---\n\n` +
       `## Summary\n${c.summary ?? ""}\n\n` +
       `## Details\n${c.details ?? ""}\n`
-    const result = await obsidianCreate(`concepts/${c.filename}`, content)
+    const result = await obsidianCreate(`${CONCEPTS_DIR}/${c.filename}`, content)
     if (result === "failed") {
       appendErrorLog("worker.concept.create", `failed: ${c.filename}`)
     }
