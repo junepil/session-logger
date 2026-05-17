@@ -24,7 +24,7 @@ function bail(msg: string): never {
 async function main(): Promise<void> {
   p.intro("session-logger installer")
 
-  const pf = checkObsidianCli()
+  const pf = await checkObsidianCli()
   if (!pf.ok) bail(pf.message)
 
   const defaults = readEnvDefaults(REPO)
