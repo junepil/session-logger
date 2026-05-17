@@ -49,7 +49,7 @@ export function writeEnv(repoDir: string, values: EnvValues): void {
   }
   const lines = [
     "# Obsidian vault to write journal and concept notes into.",
-    "# Find your vault names with: `obsidian vaults`",
+    "# Set by the installer. Re-run scripts/bootstrap.ts to change.",
     formatLine("OBSIDIAN_VAULT", values.OBSIDIAN_VAULT),
     "",
     "# Comma-separated tech stacks you want to learn (e.g. \"Spring Boot, Kotlin, AWS\").",
